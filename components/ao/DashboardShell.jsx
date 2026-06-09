@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import UnlockReportCard from './UnlockReportCard';
+import UnlockedReportsList from './UnlockedReportsList';
 import TokenBundlesCard from './TokenBundlesCard';
 
 function StatCard({ label, value, sub, accent }) {
@@ -38,7 +38,7 @@ export default function DashboardShell({ initialLoginId }) {
           setDbConnected(json.dbConnected !== false);
         }
       } catch {
-        // leave defaults; show graceful fallback
+        // leave defaults; graceful fallback
       } finally {
         if (active) setLoading(false);
       }
@@ -47,18 +47,6 @@ export default function DashboardShell({ initialLoginId }) {
       active = false;
     };
   }, [router]);
-
-  function handleRedeemed(json) {
-    setMe((prev) => {
-      if (!prev) return prev;
-      const next = { ...prev };
-      if (typeof json.tokenBalance === 'number') next.tokenBalance = json.tokenBalance;
-      if (json.ok && !json.reused && !json.balanceOnly) {
-        next.reportsProcessedCount = (prev.reportsProcessedCount ?? 0) + 1;
-      }
-      return next;
-    });
-  }
 
   async function logout() {
     setLoggingOut(true);
@@ -108,7 +96,7 @@ export default function DashboardShell({ initialLoginId }) {
         </div>
 
         <div className="mt-8">
-          <UnlockReportCard onRedeemed={handleRedeemed} />
+          <UnlockedReportsList />
         </div>
 
         <div className="mt-6">
