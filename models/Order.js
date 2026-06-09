@@ -19,8 +19,7 @@ const OrderSchema = new mongoose.Schema(
     tokenBundle: { type: mongoose.Schema.Types.ObjectId, ref: 'TokenBundle', default: null },
     tokenQuantity: { type: Number, min: 0, default: 0 },
 
-    // Gateway-neutral payment identifiers (gateway = Paypur, but not hard-coded
-    // into field names so a future gateway swap needs no schema change).
+    // Gateway-neutral payment identifiers.
     gatewayOrderId: { type: String, trim: true, index: true },
     gatewayTxnId: { type: String, trim: true },
     gatewaySignature: { type: String, trim: true, select: false },
@@ -39,19 +38,29 @@ const OrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-OrderSchema.pre('validate', function (next) {
+// Mongoose 9: pre hooks no longer receive `next` — throw synchronously instead.
+OrderSchema.pre('validate', function () {
   if (this.orderType === 'ao_token_bundle') {
-    if (!this.tokenBundle || !this.tokenQuantity) return next(new Error('ao_token_bundle orders require tokenBundle and tokenQuantity'));
+    if (!this.tokenBundle || !this.tokenQuantity) {
+      throw new Error('ao_token_bundle orders require tokenBundle and tokenQuantity');
+    }
   }
   if (this.orderType === 'employee_report') {
-    if (this.payer.kind !== 'submission') return next(new Error('employee_report orders must have payer.kind = submission'));
-    if (!this.payer.verifiedPhone) return next(new Error('employee_report orders require OTP-verified phone on payer'));
+    if (this.payer?.kind !== 'submission') {
+      throw new Error('employee_report orders must have payer.kind = submission');
+    }
+    if (!this.payer?.verifiedPhone) {
+      throw new Error('employee_report orders require OTP-verified phone on payer');
+    }
   }
   if (this.orderType === 'ao_report') {
-    if (this.payer.kind !== 'account_officer') return next(new Error('ao_report orders must have payer.kind = account_officer'));
-    if (!this.unlockedSubmission) return next(new Error('ao_report orders must specify unlockedSubmission'));
+    if (this.payer?.kind !== 'account_officer') {
+      throw new Error('ao_report orders must have payer.kind = account_officer');
+    }
+    if (!this.unlockedSubmission) {
+      throw new Error('ao_report orders must specify unlockedSubmission');
+    }
   }
-  next();
 });
 
 OrderSchema.index({ 'payer.ref': 1, createdAt: -1 });

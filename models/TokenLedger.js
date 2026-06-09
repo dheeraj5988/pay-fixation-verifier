@@ -16,14 +16,16 @@ const TokenLedgerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-TokenLedgerSchema.pre('save', function (next) {
-  if (!this.isNew) return next(new Error('TokenLedger entries are immutable; create a compensating entry instead'));
-  next();
+// Mongoose 9: pre hooks throw synchronously instead of calling next().
+
+// === APPEND-ONLY ENFORCEMENT ===
+TokenLedgerSchema.pre('save', function () {
+  if (!this.isNew) throw new Error('TokenLedger entries are immutable; create a compensating entry instead');
 });
 
-const blockMutation = function (next) {
-  next(new Error('TokenLedger entries cannot be updated or deleted'));
-};
+function blockMutation() {
+  throw new Error('TokenLedger entries cannot be updated or deleted');
+}
 TokenLedgerSchema.pre('updateOne', blockMutation);
 TokenLedgerSchema.pre('updateMany', blockMutation);
 TokenLedgerSchema.pre('findOneAndUpdate', blockMutation);
@@ -31,12 +33,12 @@ TokenLedgerSchema.pre('deleteOne', blockMutation);
 TokenLedgerSchema.pre('deleteMany', blockMutation);
 TokenLedgerSchema.pre('findOneAndDelete', blockMutation);
 
-TokenLedgerSchema.pre('validate', function (next) {
-  if (this.reason === 'purchase' && this.delta <= 0) return next(new Error('purchase entries must have positive delta'));
-  if (this.reason === 'redemption' && this.delta >= 0) return next(new Error('redemption entries must have negative delta'));
-  if (this.reason === 'redemption' && !this.relatedSubmission) return next(new Error('redemption entries must reference a submission'));
-  if (this.reason === 'purchase' && !this.relatedOrder) return next(new Error('purchase entries must reference an order'));
-  next();
+// reason <-> delta sign consistency
+TokenLedgerSchema.pre('validate', function () {
+  if (this.reason === 'purchase' && this.delta <= 0) throw new Error('purchase entries must have positive delta');
+  if (this.reason === 'redemption' && this.delta >= 0) throw new Error('redemption entries must have negative delta');
+  if (this.reason === 'redemption' && !this.relatedSubmission) throw new Error('redemption entries must reference a submission');
+  if (this.reason === 'purchase' && !this.relatedOrder) throw new Error('purchase entries must reference an order');
 });
 
 TokenLedgerSchema.index({ accountOfficer: 1, createdAt: -1 });

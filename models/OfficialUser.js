@@ -34,11 +34,11 @@ const OfficialUserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-OfficialUserSchema.pre('validate', function (next) {
+// Mongoose 9: pre hooks throw synchronously instead of calling next().
+OfficialUserSchema.pre('validate', function () {
   if (this.role === 'higher_official' && !this.invitedBy) {
-    return next(new Error('higher_official accounts must have invitedBy set'));
+    throw new Error('higher_official accounts must have invitedBy set');
   }
-  next();
 });
 
 OfficialUserSchema.index({ loginId: 1 });

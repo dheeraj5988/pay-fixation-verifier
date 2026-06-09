@@ -19,14 +19,14 @@ ProcessingLogSchema.index({ department: 1, processedAt: -1 });
 ProcessingLogSchema.index({ accountOfficer: 1, processedAt: -1 });
 ProcessingLogSchema.index({ processedAt: -1 });
 
-ProcessingLogSchema.pre('save', function (next) {
-  if (!this.isNew) return next(new Error('ProcessingLog entries are immutable'));
-  next();
+// Mongoose 9: pre hooks throw synchronously instead of calling next().
+ProcessingLogSchema.pre('save', function () {
+  if (!this.isNew) throw new Error('ProcessingLog entries are immutable');
 });
 
-const blockMutation = function (next) {
-  next(new Error('ProcessingLog entries cannot be updated or deleted'));
-};
+function blockMutation() {
+  throw new Error('ProcessingLog entries cannot be updated or deleted');
+}
 ProcessingLogSchema.pre('updateOne', blockMutation);
 ProcessingLogSchema.pre('updateMany', blockMutation);
 ProcessingLogSchema.pre('findOneAndUpdate', blockMutation);
