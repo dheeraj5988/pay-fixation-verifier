@@ -115,7 +115,7 @@ export default function DashboardShell({ initialLoginId }) {
           <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
             <p className="text-sm text-slate-500">
               Report lookup, token redemption, and the ₹300 per-report payment flow will be
-              wired up in the payments phase (Razorpay, Test Mode).
+              wired up in the payments phase (PayPur, Test Mode).
             </p>
             <button
               disabled
