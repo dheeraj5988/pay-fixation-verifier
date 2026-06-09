@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import StepIndicator from './StepIndicator';
 import Step1EmployeeDetails from './Step1EmployeeDetails';
 import Step2PayAnchor from './Step2PayAnchor';
 import Step3ChainHistory from './Step3ChainHistory';
 import Step4Review from './Step4Review';
-import CheckoutStep from './CheckoutStep';
 import { emptyForm } from '@/lib/wizardDefaults';
 import {
   loadDraft, saveDraft, loadStep, saveStep, clearDraft, debounce,
@@ -14,12 +14,12 @@ import {
 import { validateStep } from '@/lib/wizardSchema';
 
 export default function SubmissionWizard() {
+  const router = useRouter();
   const [form, setForm] = useState(emptyForm);
   const [step, setStep] = useState(1);
   const [maxReached, setMaxReached] = useState(1);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState(null);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -108,21 +108,28 @@ export default function SubmissionWizard() {
         } else {
           setErrors({ _form: json.error || 'Submission failed. Please try again.' });
         }
+        setSubmitting(false);
         return;
       }
 
-      setSubmitResult(json.submission);
+      const id = json.submission?.id || json.submission?._id;
+      if (!id) {
+        setErrors({ _form: 'Submission saved, but no reference was returned. Please try again.' });
+        setSubmitting(false);
+        return;
+      }
+
+      // The submission is now persisted with a real id. Navigate to the
+      // standalone checkout URL so it has real browser history (back button
+      // works, refresh works, the AO-login round-trip returns here cleanly).
       clearDraft();
+      router.push(`/checkout?submission=${id}`);
+      // Keep `submitting` true — navigation unmounts this component.
     } catch (e) {
       setErrors({ _form: 'Network error — could not reach the server. Is the dev server running?' });
-    } finally {
       setSubmitting(false);
     }
   };
-
-  if (submitResult) {
-    return <CheckoutStep result={submitResult} />;
-  }
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8">
