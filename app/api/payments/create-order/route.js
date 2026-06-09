@@ -3,9 +3,12 @@ import { connectDB } from '@/lib/db';
 import { Order, Submission, TokenBundle } from '@/models';
 import { createPaypurOrder, priceForIntent } from '@/lib/server/paypur';
 import { signDownloadClaim, claimCookieOptions, DL_CLAIM_COOKIE } from '@/lib/server/downloadClaim';
+import { requireAO } from '@/lib/server/aoGuard';
 
 // POST /api/payments/create-order
-// Client sends ONLY intent + references. The SERVER computes the amount.
+// Client sends ONLY intent + references. The SERVER computes the amount AND,
+// for AO order types, derives the payer from the authenticated session — the
+// client-supplied accountOfficerId (if any) is ignored.
 export async function POST(request) {
   let body;
   try {
@@ -49,13 +52,19 @@ export async function POST(request) {
         }
         orderDoc.payer = { kind: 'submission', ref: submissionId, refModel: 'Submission', verifiedPhone };
       } else {
-        const aoId = String(body.accountOfficerId || '');
-        if (!aoId) {
-          return NextResponse.json({ ok: false, error: 'accountOfficerId is required for AO report orders.' }, { status: 400 });
+        // ao_report: payer is the AUTHENTICATED AO, never a client-supplied id.
+        const session = await requireAO();
+        if (!session) {
+          return NextResponse.json({ ok: false, error: 'Account Officer login required.' }, { status: 401 });
         }
-        orderDoc.payer = { kind: 'account_officer', ref: aoId, refModel: 'AccountOfficer' };
+        orderDoc.payer = { kind: 'account_officer', ref: session.sub, refModel: 'AccountOfficer' };
       }
     } else {
+      // ao_token_bundle: payer is the AUTHENTICATED AO.
+      const session = await requireAO();
+      if (!session) {
+        return NextResponse.json({ ok: false, error: 'Account Officer login required.' }, { status: 401 });
+      }
       const bundleId = String(body.tokenBundleId || '');
       if (!bundleId) {
         return NextResponse.json({ ok: false, error: 'tokenBundleId is required.' }, { status: 400 });
@@ -65,11 +74,7 @@ export async function POST(request) {
         return NextResponse.json({ ok: false, error: 'Token bundle not found or inactive.' }, { status: 404 });
       }
       amountInRupees = bundle.priceInPaise / 100;
-      const aoId = String(body.accountOfficerId || '');
-      if (!aoId) {
-        return NextResponse.json({ ok: false, error: 'accountOfficerId is required for token purchases.' }, { status: 400 });
-      }
-      orderDoc.payer = { kind: 'account_officer', ref: aoId, refModel: 'AccountOfficer' };
+      orderDoc.payer = { kind: 'account_officer', ref: session.sub, refModel: 'AccountOfficer' };
       orderDoc.tokenBundle = bundleId;
       orderDoc.tokenQuantity = bundle.tokenQuantity;
     }
@@ -107,8 +112,6 @@ export async function POST(request) {
       payment_url: result.payment_url,
     });
 
-    // Employee downloads have no login, so bind the eventual download to THIS
-    // browser via a short-lived signed claim cookie. order-status verifies it.
     if (intent === 'employee_report') {
       resp.cookies.set(DL_CLAIM_COOKIE, signDownloadClaim(order._id.toString()), claimCookieOptions());
     }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import UnlockReportCard from './UnlockReportCard';
+import TokenBundlesCard from './TokenBundlesCard';
 
 function StatCard({ label, value, sub, accent }) {
   return (
@@ -47,8 +48,6 @@ export default function DashboardShell({ initialLoginId }) {
     };
   }, [router]);
 
-  // Called by UnlockReportCard after a redemption attempt. Updates the cached
-  // balance (and, on a real unlock, the processed count) without a full refetch.
   function handleRedeemed(json) {
     setMe((prev) => {
       if (!prev) return prev;
@@ -103,12 +102,7 @@ export default function DashboardShell({ initialLoginId }) {
         )}
 
         <div className="grid gap-5 sm:grid-cols-3">
-          <StatCard
-            label="Token Balance"
-            value={loading ? '\u2026' : balance}
-            sub="Available processing tokens"
-            accent
-          />
+          <StatCard label="Token Balance" value={loading ? '\u2026' : balance} sub="Available processing tokens" accent />
           <StatCard label="Reports Processed" value={loading ? '\u2026' : processed} sub="Lifetime count" />
           <StatCard label="Department" value={loading ? '\u2026' : me?.departmentName || '\u2014'} sub="Assigned department" />
         </div>
@@ -117,13 +111,9 @@ export default function DashboardShell({ initialLoginId }) {
           <UnlockReportCard onRedeemed={handleRedeemed} />
         </div>
 
-        <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-base font-semibold text-slate-900">Buy Token Bundles</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Top up processing tokens using your own or departmental funds. Bundle options and
-            checkout arrive in the payments phase.
-          </p>
-        </section>
+        <div className="mt-6">
+          <TokenBundlesCard />
+        </div>
       </main>
     </div>
   );
