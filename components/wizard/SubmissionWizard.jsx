@@ -6,6 +6,7 @@ import Step1EmployeeDetails from './Step1EmployeeDetails';
 import Step2PayAnchor from './Step2PayAnchor';
 import Step3ChainHistory from './Step3ChainHistory';
 import Step4Review from './Step4Review';
+import CheckoutStep from './CheckoutStep';
 import { emptyForm } from '@/lib/wizardDefaults';
 import {
   loadDraft, saveDraft, loadStep, saveStep, clearDraft, debounce,
@@ -21,7 +22,6 @@ export default function SubmissionWizard() {
   const [submitResult, setSubmitResult] = useState(null);
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate from localStorage on mount
   useEffect(() => {
     const draft = loadDraft();
     if (draft) setForm({ ...emptyForm(), ...draft });
@@ -31,7 +31,6 @@ export default function SubmissionWizard() {
     setHydrated(true);
   }, []);
 
-  // Debounced persist
   const persistRef = useRef(debounce((data) => saveDraft(data), 400));
   useEffect(() => {
     if (!hydrated) return;
@@ -84,7 +83,6 @@ export default function SubmissionWizard() {
   };
 
   const handleSubmit = async () => {
-    // Client-side gate first, for fast feedback.
     for (let s = 1; s <= 3; s++) {
       const { success, errors: stepErrors } = validateStep(s, pickStepData(form, s));
       if (!success) {
@@ -123,7 +121,7 @@ export default function SubmissionWizard() {
   };
 
   if (submitResult) {
-    return <TeaserResult result={submitResult} />;
+    return <CheckoutStep result={submitResult} />;
   }
 
   return (
@@ -197,8 +195,6 @@ function pickStepData(form, step) {
   return form;
 }
 
-// Maps a set of server/client error keys back to the wizard step that owns them,
-// so we can jump the user to the first step with a problem.
 const STEP1_KEYS = new Set([
   'name', 'dob', 'doj', 'dor', 'designation', 'department',
   'beltNo', 'status', 'npaFlag', 'probationDate', 'joiningTime',
@@ -212,33 +208,4 @@ function stepForErrorKeys(keys) {
   if (keys.some((k) => STEP2_KEYS.has(k) || k.startsWith('optionDates'))) return 2;
   if (keys.some((k) => k.startsWith('events') || k.startsWith('punishments') || k.startsWith('leaves'))) return 3;
   return 4;
-}
-
-function TeaserResult({ result }) {
-  return (
-    <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200 text-center">
-      <div className="mb-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
-        DEMO MODE — Illustrative figures only
-      </div>
-      <h2 className="mt-4 text-2xl font-bold text-slate-900">Teaser Result</h2>
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl bg-slate-50 p-6 ring-1 ring-slate-200">
-          <div className="text-sm font-medium text-slate-500">Starting Salary</div>
-          <div className="mt-2 text-3xl font-bold text-slate-900">
-            ₹{result.startingSalary.toLocaleString('en-IN')}
-          </div>
-        </div>
-        <div className="rounded-xl bg-indigo-50 p-6 ring-1 ring-indigo-200">
-          <div className="text-sm font-medium text-indigo-600">Current Salary</div>
-          <div className="mt-2 text-3xl font-bold text-indigo-700">
-            ₹{result.currentSalary.toLocaleString('en-IN')}
-          </div>
-        </div>
-      </div>
-      <p className="mt-6 text-xs text-slate-500">
-        This is an illustrative demo figure. The detailed step-by-step audit report
-        download will be enabled once the real engine and payment flow are wired up.
-      </p>
-    </div>
-  );
 }

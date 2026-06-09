@@ -6,13 +6,11 @@ import { requireAO, unauthorized } from '@/lib/server/aoGuard';
 import { Order, Submission, AccountOfficer, TokenLedger, ProcessingLog } from '@/models';
 
 const DOWNLOAD_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const REDEEM_TOKEN_COST = 3; // 1 token = Rs.100, a report = Rs.300 = 3 tokens
 
 // POST /api/ao/redeem-token   Body: { submissionId }
-//
-// Lets an authenticated AO unlock a report by spending ONE token instead of
-// paying the gateway. One token per (AO, submission) — enforced by the
-// ProcessingLog unique index. Re-redeeming an already-unlocked report re-issues
-// a fresh download link WITHOUT charging another token.
+// Authenticated AO spends REDEEM_TOKEN_COST tokens to unlock a report.
+// One charge per (AO, submission) — re-unlocking re-issues a link for free.
 export async function POST(request) {
   const session = await requireAO();
   if (!session) return unauthorized();
@@ -46,7 +44,7 @@ export async function POST(request) {
         const newToken = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + DOWNLOAD_TTL_MS);
 
-        // Already unlocked this report? Re-issue link, no charge.
+        // Already unlocked? Re-issue link, no charge.
         const existingLog = await ProcessingLog.findOne({
           accountOfficer: ao._id,
           submission: submissionId,
@@ -75,7 +73,7 @@ export async function POST(request) {
             body: {
               ok: true,
               reused: true,
-              message: 'Report already unlocked — fresh download link issued (no token charged).',
+              message: 'Report already unlocked — fresh download link issued (no tokens charged).',
               downloadUrl: `/api/reports/download?token=${newToken}`,
               tokenBalance: ao.tokenBalance ?? 0,
             },
@@ -83,16 +81,21 @@ export async function POST(request) {
           return;
         }
 
-        // First unlock — requires a token.
-        if ((ao.tokenBalance ?? 0) < 1) {
+        // First unlock — requires REDEEM_TOKEN_COST tokens.
+        if ((ao.tokenBalance ?? 0) < REDEEM_TOKEN_COST) {
           outcome = {
             status: 402,
-            body: { ok: false, error: 'Insufficient token balance. Buy tokens or pay per report.', tokenBalance: ao.tokenBalance ?? 0 },
+            body: {
+              ok: false,
+              error: `Insufficient token balance. Unlocking a report costs ${REDEEM_TOKEN_COST} tokens; you have ${ao.tokenBalance ?? 0}.`,
+              tokenBalance: ao.tokenBalance ?? 0,
+              tokenCost: REDEEM_TOKEN_COST,
+            },
           };
           return;
         }
 
-        const newBalance = (ao.tokenBalance ?? 0) - 1;
+        const newBalance = (ao.tokenBalance ?? 0) - REDEEM_TOKEN_COST;
         const order = new Order({
           orderType: 'ao_report',
           payer: { kind: 'account_officer', ref: ao._id, refModel: 'AccountOfficer' },
@@ -109,7 +112,7 @@ export async function POST(request) {
           [
             {
               accountOfficer: ao._id,
-              delta: -1,
+              delta: -REDEEM_TOKEN_COST,
               reason: 'redemption',
               relatedSubmission: submissionId,
               relatedOrder: order._id,
@@ -145,7 +148,7 @@ export async function POST(request) {
           status: 200,
           body: {
             ok: true,
-            message: 'Token redeemed. Report unlocked.',
+            message: `${REDEEM_TOKEN_COST} tokens redeemed. Report unlocked.`,
             downloadUrl: `/api/reports/download?token=${newToken}`,
             tokenBalance: newBalance,
           },
