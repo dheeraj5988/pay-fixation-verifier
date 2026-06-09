@@ -1,5 +1,6 @@
 import SubmissionWizard from '@/components/wizard/SubmissionWizard';
 import DemoBanner from '@/components/wizard/DemoBanner';
+import EmployeeReportsLibrary from '@/components/EmployeeReportsLibrary';
 
 export default function HomePage() {
   return (
@@ -14,6 +15,7 @@ export default function HomePage() {
             Rajasthan State Government — 4CPC → 7CPC pay fixation audit
           </p>
         </header>
+        <EmployeeReportsLibrary />
         <SubmissionWizard />
       </div>
     </main>
