@@ -16,9 +16,12 @@ function TeaserCard({ label, value, accent }) {
   );
 }
 
-// Renders the report checkout. Two ways in:
-//   - from the wizard: <CheckoutStep result={{ id, startingSalary, currentSalary }} />
-//   - standalone (post-login return): <CheckoutStep submissionId={id} />  (no teaser figures)
+const inputCls =
+  'block w-full rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+
+// Report checkout. Two entry points:
+//   - wizard:     <CheckoutStep result={{ id, startingSalary, currentSalary }} />
+//   - standalone: <CheckoutStep submissionId={id} />   (post-login return)
 export default function CheckoutStep({ result, submissionId: submissionIdProp }) {
   const submissionId = result?.id || submissionIdProp || '';
   const hasTeaser = result && (result.startingSalary != null || result.currentSalary != null);
@@ -28,6 +31,16 @@ export default function CheckoutStep({ result, submissionId: submissionIdProp })
   const [redeeming, setRedeeming] = useState(false);
   const [error, setError] = useState('');
   const [download, setDownload] = useState(null);
+
+  // ---- employee self-pay state ----
+  const [empStage, setEmpStage] = useState('phone'); // phone | otp | paying
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [empBusy, setEmpBusy] = useState(false);
+  const [empError, setEmpError] = useState('');
+  const [empInfo, setEmpInfo] = useState('');
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     let active = true;
@@ -55,6 +68,14 @@ export default function CheckoutStep({ result, submissionId: submissionIdProp })
     };
   }, []);
 
+  useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [cooldownUntil]);
+  const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
+
+  // ---- AO redemption ----
   async function redeem() {
     setError('');
     if (!submissionId) {
@@ -81,6 +102,101 @@ export default function CheckoutStep({ result, submissionId: submissionIdProp })
       setError('Network error \u2014 could not reach the server.');
     } finally {
       setRedeeming(false);
+    }
+  }
+
+  // ---- employee flow ----
+  async function sendOtp(e) {
+    if (e) e.preventDefault();
+    setEmpError('');
+    setEmpInfo('');
+    if (!submissionId) {
+      setEmpError('Missing submission reference.');
+      return;
+    }
+    setEmpBusy(true);
+    try {
+      const res = await fetch('/api/employee/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ submissionId, phone }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.ok) {
+        setEmpStage('otp');
+        setEmpInfo(`A 6-digit code was sent to ${json.maskedPhone || 'your mobile'}.`);
+        setCooldownUntil(Date.now() + (json.cooldownSeconds || 30) * 1000);
+        setNow(Date.now());
+      } else {
+        setEmpError(json.error || 'Could not send the code.');
+        if (json.cooldownSeconds) {
+          setCooldownUntil(Date.now() + json.cooldownSeconds * 1000);
+          setNow(Date.now());
+        }
+      }
+    } catch {
+      setEmpError('Network error \u2014 could not reach the server.');
+    } finally {
+      setEmpBusy(false);
+    }
+  }
+
+  async function verifyOtp(e) {
+    if (e) e.preventDefault();
+    setEmpError('');
+    if (!/^[0-9]{6}$/.test(otp.trim())) {
+      setEmpError('Enter the 6-digit code.');
+      return;
+    }
+    setEmpBusy(true);
+    try {
+      const res = await fetch('/api/employee/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ submissionId, otp: otp.trim() }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.ok) {
+        setEmpStage('paying');
+        startPayment();
+        return;
+      }
+      setEmpError(json.error || 'Verification failed.');
+      if (json.restart) {
+        setEmpStage('phone');
+        setOtp('');
+      }
+    } catch {
+      setEmpError('Network error \u2014 could not reach the server.');
+    } finally {
+      setEmpBusy(false);
+    }
+  }
+
+  async function startPayment() {
+    setEmpError('');
+    setEmpBusy(true);
+    try {
+      const res = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ intent: 'employee_report', submissionId, mobile: phone }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.ok && json.payment_url) {
+        window.location.href = json.payment_url;
+      } else {
+        setEmpError(json.error || 'Could not start payment. Please try again.');
+        setEmpStage('otp');
+      }
+    } catch {
+      setEmpError('Network error \u2014 could not start payment.');
+      setEmpStage('otp');
+    } finally {
+      setEmpBusy(false);
     }
   }
 
@@ -140,11 +256,7 @@ export default function CheckoutStep({ result, submissionId: submissionIdProp })
                 Token balance: <span className="font-semibold">{balance == null ? '\u2014' : balance}</span>
               </p>
             </div>
-
-            {error && (
-              <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-800 ring-1 ring-red-200">{error}</div>
-            )}
-
+            {error && <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-800 ring-1 ring-red-200">{error}</div>}
             <div className="mt-4 flex flex-col gap-3">
               <button
                 onClick={redeem}
@@ -169,21 +281,100 @@ export default function CheckoutStep({ result, submissionId: submissionIdProp })
             </div>
           </div>
         ) : (
-          <div className="mx-auto mt-4 max-w-md text-center">
-            {/* Highlighted AO login prompt — carries a redirect back to this report's checkout */}
+          // ---- Not an AO: employee self-pay (phone → OTP → Rs.500 gateway) ----
+          <div className="mx-auto mt-4 max-w-md">
             <a
               href={loginHref}
-              className="block rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+              className="block rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-center text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
             >
               Are you an Account Officer? Log in here to use your tokens →
             </a>
 
-            <p className="mt-4 text-sm text-slate-600">Or get the report as an employee:</p>
-            <p className="mt-2 text-xs text-slate-400">
-              Employee self-service payment is coming soon. For now, Account Officers can sign in to
-              unlock with tokens or pay per report.
-            </p>
-            <p className="mt-3 break-all text-xs text-slate-400">Submission reference: {submissionId}</p>
+            <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+              <span className="h-px flex-1 bg-slate-200" />
+              <span>or get your report as the employee</span>
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-5">
+              <p className="text-sm font-semibold text-slate-900">Employee Report — \u20B9500</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Verify your mobile number, then pay securely to download your detailed report.
+              </p>
+
+              {empError && (
+                <div className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-800 ring-1 ring-red-200">{empError}</div>
+              )}
+              {empInfo && !empError && (
+                <div className="mt-3 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800 ring-1 ring-emerald-200">{empInfo}</div>
+              )}
+
+              {empStage === 'phone' && (
+                <form onSubmit={sendOtp} className="mt-4 space-y-3">
+                  <div className="flex items-stretch">
+                    <span className="inline-flex items-center rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm text-slate-500">+91</span>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="10-digit mobile"
+                      className={`${inputCls} rounded-l-none`}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={empBusy}
+                    className="w-full rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {empBusy ? 'Sending\u2026' : 'Send OTP'}
+                  </button>
+                </form>
+              )}
+
+              {empStage === 'otp' && (
+                <form onSubmit={verifyOtp} className="mt-4 space-y-3">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="------"
+                    className={`${inputCls} text-center text-lg tracking-[0.5em]`}
+                  />
+                  <button
+                    type="submit"
+                    disabled={empBusy}
+                    className="w-full rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {empBusy ? 'Verifying\u2026' : 'Verify & Continue to Payment'}
+                  </button>
+                  <div className="flex items-center justify-between text-xs">
+                    <button type="button" onClick={() => { setEmpStage('phone'); setOtp(''); setEmpError(''); setEmpInfo(''); }} className="text-slate-500 hover:text-slate-700">
+                      ← Change number
+                    </button>
+                    <button type="button" onClick={sendOtp} disabled={empBusy || cooldownLeft > 0} className="font-medium text-indigo-600 hover:text-indigo-700 disabled:text-slate-300">
+                      {cooldownLeft > 0 ? `Resend in ${cooldownLeft}s` : 'Resend OTP'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {empStage === 'paying' && (
+                <div className="mt-4 text-center">
+                  <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
+                  <p className="text-sm text-slate-600">Verified. Redirecting to secure payment\u2026</p>
+                  <button type="button" onClick={startPayment} disabled={empBusy} className="mt-3 text-xs font-medium text-indigo-600 hover:text-indigo-700">
+                    Not redirected? Continue to payment
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <p className="mt-3 break-all text-center text-xs text-slate-400">Submission reference: {submissionId}</p>
           </div>
         )}
       </div>
