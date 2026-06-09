@@ -1,6 +1,6 @@
 'use client';
 
-import { JOINING_TIME_OPTIONS } from '@/lib/wizardConstants';
+import { JOINING_TIME_OPTIONS, STATUS_OPTIONS, STATUS_LABELS } from '@/lib/wizardConstants';
 
 function Field({ label, error, required, children, hint }) {
   return (
@@ -118,14 +118,22 @@ export default function Step1EmployeeDetails({ form, errors, updateField }) {
           />
         </Field>
 
-        <Field label="Status" error={errors.status} hint="e.g. Working / Retired / Suspended">
-          <input
-            type="text"
-            value={form.status}
-            onChange={(e) => updateField('status', e.target.value)}
-            className={inputCls}
-            placeholder="optional"
-          />
+        <Field label="Status" required error={errors.status}>
+          <div className="flex flex-wrap gap-4 pt-1">
+            {STATUS_OPTIONS.map((opt) => (
+              <label key={opt} className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="radio"
+                  name="status"
+                  value={opt}
+                  checked={form.status === opt}
+                  onChange={(e) => updateField('status', e.target.value)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                />
+                {STATUS_LABELS[opt] || opt}
+              </label>
+            ))}
+          </div>
         </Field>
 
         <Field label="Joining Time" required error={errors.joiningTime}>

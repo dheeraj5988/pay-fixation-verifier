@@ -51,6 +51,10 @@ export default function SubmissionWizard() {
     if (res?.name) {
       setForm((prev) => (prev.name ? prev : { ...prev, name: res.name }));
     }
+    // Let the page top bar pick up the new identity without a reload.
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('pfv-identity-changed'));
+    }
   }
 
   const updateField = (path, value) => {
@@ -148,17 +152,6 @@ export default function SubmissionWizard() {
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8">
-      {identity && (
-        <div className="mb-4 flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200">
-          <span>
-            Verified
-            {identity.aoLoggedIn ? ' · signed in as Account Officer' : ''}
-            {identity.name ? ` · ${identity.name}` : ''}
-          </span>
-          {identity.aoLoggedIn && <span className="font-semibold">AO</span>}
-        </div>
-      )}
-
       <StepIndicator current={step} maxReached={maxReached} onStepClick={goToStep} />
 
       {errors._form && (

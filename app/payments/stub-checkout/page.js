@@ -1,4 +1,3 @@
-import DemoBanner from '@/components/wizard/DemoBanner';
 
 export const metadata = { title: 'Checkout (Demo) — Pay Fixation Verifier' };
 
@@ -13,7 +12,6 @@ export default async function StubCheckoutPage({ searchParams }) {
 
   return (
     <main className="min-h-screen">
-      <DemoBanner />
       <div className="mx-auto max-w-lg px-4 py-12">
         <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
           <h1 className="text-xl font-bold text-slate-900">Demo checkout</h1>

@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import mongoose from 'mongoose';
 import CheckoutStep from '@/components/wizard/CheckoutStep';
-import DemoBanner from '@/components/wizard/DemoBanner';
 import { connectDB } from '@/lib/db';
 import { Submission } from '@/models';
 import { TEASER_COOKIE, verifyTeaserClaim } from '@/lib/server/wizardClaims';
@@ -42,7 +41,6 @@ export default async function CheckoutPage({ searchParams }) {
 
   return (
     <main className="min-h-screen">
-      <DemoBanner />
       <div className="mx-auto max-w-3xl px-4 py-10">
         <CheckoutStep submissionId={submissionId} result={teaser} phoneVerified={phoneVerified} />
       </div>

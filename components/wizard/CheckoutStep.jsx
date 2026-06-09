@@ -204,10 +204,7 @@ export default function CheckoutStep({ result, submissionId: submissionIdProp, p
   return (
     <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
       <div className="text-center">
-        <div className="mb-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
-          DEMO MODE — Illustrative figures only
-        </div>
-        <h2 className="mt-4 text-2xl font-bold text-slate-900">Your Pay Fixation Summary</h2>
+        <h2 className="text-2xl font-bold text-slate-900">Your Pay Fixation Summary</h2>
         {hasTeaser ? (
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <TeaserCard label="Starting Salary" value={result?.startingSalary} />

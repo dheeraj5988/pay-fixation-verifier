@@ -1,11 +1,11 @@
 import SubmissionWizard from '@/components/wizard/SubmissionWizard';
-import DemoBanner from '@/components/wizard/DemoBanner';
 import EmployeeReportsLibrary from '@/components/EmployeeReportsLibrary';
+import EmployeeTopBar from '@/components/EmployeeTopBar';
 
 export default function HomePage() {
   return (
     <main className="min-h-screen">
-      <DemoBanner />
+      <EmployeeTopBar />
       <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
         <header className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
