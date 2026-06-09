@@ -16,8 +16,13 @@ function TeaserCard({ label, value, accent }) {
   );
 }
 
-export default function CheckoutStep({ result }) {
-  const submissionId = result?.id;
+// Renders the report checkout. Two ways in:
+//   - from the wizard: <CheckoutStep result={{ id, startingSalary, currentSalary }} />
+//   - standalone (post-login return): <CheckoutStep submissionId={id} />  (no teaser figures)
+export default function CheckoutStep({ result, submissionId: submissionIdProp }) {
+  const submissionId = result?.id || submissionIdProp || '';
+  const hasTeaser = result && (result.startingSalary != null || result.currentSalary != null);
+
   const [ao, setAo] = useState(undefined); // undefined = checking, null = not AO, object = AO
   const [balance, setBalance] = useState(null);
   const [redeeming, setRedeeming] = useState(false);
@@ -39,7 +44,7 @@ export default function CheckoutStep({ result }) {
             setAo(null);
           }
         } else {
-          setAo(null); // 401 → not signed in as an AO
+          setAo(null);
         }
       } catch {
         if (active) setAo(null);
@@ -80,6 +85,7 @@ export default function CheckoutStep({ result }) {
   }
 
   const insufficient = balance != null && balance < REDEEM_COST;
+  const loginHref = `/ao/login?redirect=${encodeURIComponent('/checkout?submission=' + submissionId)}`;
 
   return (
     <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
@@ -88,10 +94,16 @@ export default function CheckoutStep({ result }) {
           DEMO MODE — Illustrative figures only
         </div>
         <h2 className="mt-4 text-2xl font-bold text-slate-900">Your Pay Fixation Summary</h2>
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          <TeaserCard label="Starting Salary" value={result?.startingSalary} />
-          <TeaserCard label="Current Salary" value={result?.currentSalary} accent />
-        </div>
+        {hasTeaser ? (
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <TeaserCard label="Starting Salary" value={result?.startingSalary} />
+            <TeaserCard label="Current Salary" value={result?.currentSalary} accent />
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-slate-500">
+            Unlock the detailed step-by-step audit report for this submission below.
+          </p>
+        )}
       </div>
 
       <div className="mt-8 border-t border-slate-200 pt-6">
@@ -99,7 +111,9 @@ export default function CheckoutStep({ result }) {
           Download Detailed Step-by-Step Audit Report
         </h3>
 
-        {download ? (
+        {!submissionId ? (
+          <p className="mt-4 text-center text-sm text-red-600">No report was specified.</p>
+        ) : download ? (
           <div className="mx-auto mt-4 max-w-md rounded-md bg-emerald-50 p-4 text-center text-sm text-emerald-900 ring-1 ring-emerald-200">
             <p className="font-medium">{download.reused ? 'Report already unlocked' : 'Report unlocked'}</p>
             {download.message && <p className="mt-1">{download.message}</p>}
@@ -156,19 +170,19 @@ export default function CheckoutStep({ result }) {
           </div>
         ) : (
           <div className="mx-auto mt-4 max-w-md text-center">
-            <p className="text-sm text-slate-600">Choose how you&rsquo;d like to get the full report:</p>
-            <div className="mt-4 flex flex-col gap-3">
-              <a
-                href="/ao/login"
-                className="rounded-md bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-              >
-                I&rsquo;m an Account Officer — Sign in
-              </a>
-              <p className="text-xs text-slate-400">
-                Employee self-service payment is coming soon. Account Officers can sign in to unlock
-                with tokens or pay per report.
-              </p>
-            </div>
+            {/* Highlighted AO login prompt — carries a redirect back to this report's checkout */}
+            <a
+              href={loginHref}
+              className="block rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+            >
+              Are you an Account Officer? Log in here to use your tokens →
+            </a>
+
+            <p className="mt-4 text-sm text-slate-600">Or get the report as an employee:</p>
+            <p className="mt-2 text-xs text-slate-400">
+              Employee self-service payment is coming soon. For now, Account Officers can sign in to
+              unlock with tokens or pay per report.
+            </p>
             <p className="mt-3 break-all text-xs text-slate-400">Submission reference: {submissionId}</p>
           </div>
         )}

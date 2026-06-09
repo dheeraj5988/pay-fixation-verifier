@@ -2,9 +2,7 @@
 
 import { useState } from 'react';
 
-// Lets an authenticated AO spend one token to unlock a report by submission ID.
-// Calls /api/ao/redeem-token, shows the resulting single-use download link, and
-// reports the new balance up to the parent via onRedeemed(json).
+// Lets an authenticated AO spend 3 tokens to unlock a report by submission ID.
 export default function UnlockReportCard({ onRedeemed }) {
   const [submissionId, setSubmissionId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -40,7 +38,6 @@ export default function UnlockReportCard({ onRedeemed }) {
         if (onRedeemed) onRedeemed(json);
       } else {
         setError(json.error || 'Could not unlock the report.');
-        // 402 returns the (unchanged) balance — keep the UI in sync anyway.
         if (typeof json.tokenBalance === 'number' && onRedeemed) {
           onRedeemed({ ...json, balanceOnly: true });
         }
@@ -56,8 +53,8 @@ export default function UnlockReportCard({ onRedeemed }) {
     <section className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
       <h2 className="text-base font-semibold text-slate-900">Unlock a Report</h2>
       <p className="mt-1 text-sm text-slate-500">
-        Spend one token to unlock an employee&rsquo;s detailed audit report. Re-unlocking a report
-        you&rsquo;ve already opened issues a fresh link without charging another token.
+        Spend 3 tokens to unlock an employee&rsquo;s detailed audit report. Re-unlocking a report
+        you&rsquo;ve already opened issues a fresh link without charging again.
       </p>
 
       <form onSubmit={redeem} className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -73,7 +70,7 @@ export default function UnlockReportCard({ onRedeemed }) {
           disabled={busy}
           className="rounded-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60"
         >
-          {busy ? 'Unlocking\u2026' : 'Redeem 1 Token'}
+          {busy ? 'Unlocking\u2026' : 'Redeem 3 Tokens'}
         </button>
       </form>
 
@@ -91,7 +88,7 @@ export default function UnlockReportCard({ onRedeemed }) {
       {result && (
         <div className="mt-4 rounded-md bg-emerald-50 p-4 text-sm text-emerald-900 ring-1 ring-emerald-200">
           <p className="font-medium">
-            {result.reused ? 'Report already unlocked' : 'Token redeemed \u2014 report unlocked'}
+            {result.reused ? 'Report already unlocked' : 'Tokens redeemed \u2014 report unlocked'}
           </p>
           <p className="mt-1 text-emerald-800">{result.message}</p>
           {result.downloadUrl && (
