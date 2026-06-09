@@ -3,15 +3,15 @@
 import { useEffect, useState } from 'react';
 
 function fmtDate(d) {
-  if (!d) return '\u2014';
+  if (!d) return '—';
   const dt = new Date(d);
-  return Number.isNaN(dt.getTime()) ? '\u2014' : dt.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  return Number.isNaN(dt.getTime()) ? '—' : dt.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 function methodLabel(m) {
   if (m === 'token_redemption') return 'Tokens';
   if (m === 'direct_payment') return 'Paid';
-  return m || '\u2014';
+  return m || '—';
 }
 
 export default function UnlockedReportsList() {
@@ -48,7 +48,7 @@ export default function UnlockedReportsList() {
       )}
 
       {reports === null && !error && (
-        <p className="mt-4 text-sm text-slate-400">Loading your reports\u2026</p>
+        <p className="mt-4 text-sm text-slate-400">Loading your reports…</p>
       )}
 
       {reports && reports.length === 0 && !error && (
@@ -73,9 +73,9 @@ export default function UnlockedReportsList() {
             <tbody>
               {reports.map((r) => (
                 <tr key={r.submissionId} className="border-b border-slate-100 last:border-0">
-                  <td className="px-2 py-3 font-medium text-slate-800">{r.employeeName || '\u2014'}</td>
-                  <td className="px-2 py-3 text-slate-600">{r.designation || '\u2014'}</td>
-                  <td className="px-2 py-3 text-slate-600">{r.department || '\u2014'}</td>
+                  <td className="px-2 py-3 font-medium text-slate-800">{r.employeeName || '—'}</td>
+                  <td className="px-2 py-3 text-slate-600">{r.designation || '—'}</td>
+                  <td className="px-2 py-3 text-slate-600">{r.department || '—'}</td>
                   <td className="px-2 py-3 text-slate-600">{fmtDate(r.processedAt)}</td>
                   <td className="px-2 py-3">
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import CheckoutButton from '@/components/CheckoutButton';
 
 function rupees(paise) {
-  return '\u20B9' + (Number(paise) / 100).toLocaleString('en-IN');
+  return '₹' + (Number(paise) / 100).toLocaleString('en-IN');
 }
 
 export default function TokenBundlesCard() {
@@ -42,7 +42,7 @@ export default function TokenBundlesCard() {
       )}
 
       {bundles === null && !error && (
-        <p className="mt-4 text-sm text-slate-400">Loading bundles\u2026</p>
+        <p className="mt-4 text-sm text-slate-400">Loading bundles…</p>
       )}
 
       {bundles && bundles.length === 0 && !error && (
@@ -65,7 +65,7 @@ export default function TokenBundlesCard() {
                 <CheckoutButton
                   intent="ao_token_bundle"
                   tokenBundleId={b.id}
-                  label={`Buy \u2014 ${rupees(b.priceInPaise)}`}
+                  label={`Buy — ${rupees(b.priceInPaise)}`}
                   className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
                 />
               </div>

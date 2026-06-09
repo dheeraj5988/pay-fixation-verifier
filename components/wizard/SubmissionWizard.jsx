@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import StepIndicator from './StepIndicator';
+import Step0Identity from './Step0Identity';
 import Step1EmployeeDetails from './Step1EmployeeDetails';
 import Step2PayAnchor from './Step2PayAnchor';
 import Step3ChainHistory from './Step3ChainHistory';
@@ -10,6 +11,7 @@ import Step4Review from './Step4Review';
 import { emptyForm } from '@/lib/wizardDefaults';
 import {
   loadDraft, saveDraft, loadStep, saveStep, clearDraft, debounce,
+  loadIdentity, saveIdentity,
 } from '@/lib/wizardStorage';
 import { validateStep } from '@/lib/wizardSchema';
 
@@ -21,6 +23,7 @@ export default function SubmissionWizard() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [identity, setIdentity] = useState(null);
 
   useEffect(() => {
     const draft = loadDraft();
@@ -28,6 +31,7 @@ export default function SubmissionWizard() {
     const savedStep = loadStep();
     setStep(savedStep);
     setMaxReached(savedStep);
+    setIdentity(loadIdentity());
     setHydrated(true);
   }, []);
 
@@ -40,6 +44,14 @@ export default function SubmissionWizard() {
   useEffect(() => {
     if (hydrated) saveStep(step);
   }, [step, hydrated]);
+
+  function handleIdentityVerified(res) {
+    saveIdentity(res);
+    setIdentity(res);
+    if (res?.name) {
+      setForm((prev) => (prev.name ? prev : { ...prev, name: res.name }));
+    }
+  }
 
   const updateField = (path, value) => {
     setForm((prev) => {
@@ -97,6 +109,7 @@ export default function SubmissionWizard() {
       const res = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify(form),
       });
       const json = await res.json().catch(() => ({}));
@@ -119,9 +132,6 @@ export default function SubmissionWizard() {
         return;
       }
 
-      // The submission is now persisted with a real id. Navigate to the
-      // standalone checkout URL so it has real browser history (back button
-      // works, refresh works, the AO-login round-trip returns here cleanly).
       clearDraft();
       router.push(`/checkout?submission=${id}`);
       // Keep `submitting` true — navigation unmounts this component.
@@ -131,8 +141,24 @@ export default function SubmissionWizard() {
     }
   };
 
+  // Mandatory Step 0 — calculator stays locked until the mobile is verified.
+  if (hydrated && !identity) {
+    return <Step0Identity initialName={form.name} onVerified={handleIdentityVerified} />;
+  }
+
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:p-8">
+      {identity && (
+        <div className="mb-4 flex items-center justify-between rounded-md bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200">
+          <span>
+            Verified
+            {identity.aoLoggedIn ? ' · signed in as Account Officer' : ''}
+            {identity.name ? ` · ${identity.name}` : ''}
+          </span>
+          {identity.aoLoggedIn && <span className="font-semibold">AO</span>}
+        </div>
+      )}
+
       <StepIndicator current={step} maxReached={maxReached} onStepClick={goToStep} />
 
       {errors._form && (
