@@ -90,7 +90,7 @@ export async function POST(request) {
 
     // All checks passed → finalize.
     order.status = 'verified';
-    order.razorpayPaymentId = transactionId || order.razorpayPaymentId; // gateway txn id
+    order.gatewayTxnId = transactionId || order.gatewayTxnId; // gateway txn id
     order.verifiedAt = new Date();
     await order.save();
 

@@ -19,9 +19,11 @@ const OrderSchema = new mongoose.Schema(
     tokenBundle: { type: mongoose.Schema.Types.ObjectId, ref: 'TokenBundle', default: null },
     tokenQuantity: { type: Number, min: 0, default: 0 },
 
-    razorpayOrderId: { type: String, trim: true, index: true },
-    razorpayPaymentId: { type: String, trim: true },
-    razorpaySignature: { type: String, trim: true, select: false },
+    // Gateway-neutral payment identifiers (gateway = Paypur, but not hard-coded
+    // into field names so a future gateway swap needs no schema change).
+    gatewayOrderId: { type: String, trim: true, index: true },
+    gatewayTxnId: { type: String, trim: true },
+    gatewaySignature: { type: String, trim: true, select: false },
 
     status: { type: String, enum: ['created', 'paid', 'failed', 'verified', 'refunded'], default: 'created' },
 

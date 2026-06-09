@@ -120,9 +120,9 @@ export async function POST(request) {
       return NextResponse.json({ ok: false, error: result.error || 'Could not create payment.' }, { status: 502 });
     }
 
-    // Record Paypur's order id for later reconciliation.
+    // Record the gateway's order id for later reconciliation.
     if (result.order_id) {
-      order.razorpayOrderId = result.order_id; // reusing existing field as the gateway order id
+      order.gatewayOrderId = result.order_id;
       await order.save();
     }
 
