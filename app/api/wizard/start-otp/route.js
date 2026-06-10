@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { connectDB } from '@/lib/db';
 import WizardStartOtp from '@/models/WizardStartOtp';
+import { sendOtpSms } from '@/lib/server/sms';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 30 * 1000;
@@ -21,23 +22,6 @@ function genOtp() {
 function hashOtp(otp, phone) {
   const pepper = process.env.JWT_SECRET || 'pepper';
   return crypto.createHash('sha256').update(`${otp}:${phone}:${pepper}`).digest('hex');
-}
-
-// Dry-run by default; logs the code to the server console. Reconcile with a real
-// SMS provider (and DLT templates) when going live.
-async function sendOtpSms(phone, otp) {
-  const dryRun = process.env.SMS_DRY_RUN === 'true' || !process.env.FAST2SMS_API_KEY;
-  if (dryRun) {
-    console.log(`[wizard start OTP][DRY-RUN] code for +91${phone}: ${otp}`);
-    return { dryRun: true };
-  }
-  const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
-    method: 'POST',
-    headers: { authorization: process.env.FAST2SMS_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ route: 'otp', variables_values: otp, numbers: phone }),
-  });
-  if (!res.ok) throw new Error('SMS send failed');
-  return { dryRun: false };
 }
 
 // POST /api/wizard/start-otp  Body: { name, phone }

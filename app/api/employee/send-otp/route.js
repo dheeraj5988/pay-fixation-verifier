@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db';
 import { Submission } from '@/models';
 import EmployeeOtp from '@/models/EmployeeOtp';
+import { sendOtpSms } from '@/lib/server/sms';
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 30 * 1000;
@@ -23,24 +24,6 @@ function genOtp() {
 function hashOtp(otp, submissionId) {
   const pepper = process.env.JWT_SECRET || 'pepper';
   return crypto.createHash('sha256').update(`${otp}:${submissionId}:${pepper}`).digest('hex');
-}
-
-// Dry-run by default (SMS_DRY_RUN=true or no Fast2SMS key) — logs the code to the
-// server console. Real send is included for when live SMS is wired (reconcile
-// with lib/server/sms.js + DLT templates at that point).
-async function sendOtpSms(phone, otp) {
-  const dryRun = process.env.SMS_DRY_RUN === 'true' || !process.env.FAST2SMS_API_KEY;
-  if (dryRun) {
-    console.log(`[employee OTP][DRY-RUN] code for +91${phone}: ${otp}`);
-    return { dryRun: true };
-  }
-  const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
-    method: 'POST',
-    headers: { authorization: process.env.FAST2SMS_API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ route: 'otp', variables_values: otp, numbers: phone }),
-  });
-  if (!res.ok) throw new Error('SMS send failed');
-  return { dryRun: false };
 }
 
 // POST /api/employee/send-otp  Body: { submissionId, phone }
