@@ -43,6 +43,12 @@ export async function POST(request) {
 
   try {
     await connectDB();
+  } catch (dbErr) {
+    console.error('[wizard/start-otp] ❌ DATABASE unreachable at connect — check your Atlas IP allowlist & MONGODB_URI:', dbErr?.message || dbErr);
+    return NextResponse.json({ ok: false, error: 'Service temporarily unavailable. Please try again.' }, { status: 503 });
+  }
+
+  try {
     const now = Date.now();
     const existing = await WizardStartOtp.findOne({ phone });
     if (existing?.lastSentAt && now - new Date(existing.lastSentAt).getTime() < RESEND_COOLDOWN_MS) {
@@ -73,7 +79,15 @@ export async function POST(request) {
       ttlSeconds: OTP_TTL_MS / 1000,
     });
   } catch (err) {
-    console.error('[wizard/start-otp] error:', err);
+    if (err?.isSmsError) {
+      console.error('[wizard/start-otp] ❌ SMS gateway failed — see the [sms] Fast2SMS payload logged above.');
+      return NextResponse.json({ ok: false, error: 'Could not send the code. Please try again.' }, { status: 502 });
+    }
+    if (String(err?.name || '').startsWith('Mongo')) {
+      console.error('[wizard/start-otp] ❌ DATABASE error during query — check Atlas allowlist & MONGODB_URI:', err?.message || err);
+      return NextResponse.json({ ok: false, error: 'Service temporarily unavailable. Please try again.' }, { status: 503 });
+    }
+    console.error('[wizard/start-otp] ❌ Unexpected error:', err);
     return NextResponse.json({ ok: false, error: 'Could not send the code. Please try again.' }, { status: 500 });
   }
 }

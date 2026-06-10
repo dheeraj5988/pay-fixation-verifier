@@ -23,6 +23,12 @@ export async function POST(request) {
 
   try {
     await connectDB();
+  } catch (dbErr) {
+    console.error('[ao/login] ❌ DATABASE unreachable at connect — check your Atlas IP allowlist & MONGODB_URI:', dbErr?.message || dbErr);
+    return NextResponse.json({ ok: false, error: 'Service temporarily unavailable. Please try again.' }, { status: 503 });
+  }
+
+  try {
     const ao = await AccountOfficer.findOne({ loginId }).select('+passwordHash');
     const passwordOk = ao && ao.isActive && (await verifyPassword(password, ao.passwordHash));
     if (!passwordOk) {
@@ -44,7 +50,7 @@ export async function POST(request) {
     try {
       await sendOtpSms(ao.phone, code);
     } catch (smsErr) {
-      console.error('[ao/login] SMS send failed:', smsErr);
+      console.error('[ao/login] ❌ SMS send failed — see the [sms] Fast2SMS payload logged above.');
       return NextResponse.json({ ok: false, error: 'Could not send OTP. Please try again shortly.' }, { status: 502 });
     }
 
@@ -53,7 +59,11 @@ export async function POST(request) {
       { status: 200 }
     );
   } catch (err) {
-    console.error('[ao/login] error:', err);
+    if (String(err?.name || '').startsWith('Mongo')) {
+      console.error('[ao/login] ❌ DATABASE error during query — check Atlas allowlist & MONGODB_URI:', err?.message || err);
+      return NextResponse.json({ ok: false, error: 'Service temporarily unavailable. Please try again.' }, { status: 503 });
+    }
+    console.error('[ao/login] ❌ Unexpected error:', err);
     return NextResponse.json({ ok: false, error: 'Login failed. Please try again.' }, { status: 500 });
   }
 }
